@@ -47,7 +47,7 @@
 </head>
 <body>
 
-  <h1>CoC Boost & Bite Timer</h1>
+  <h1>CoC Timer</h1>
 
   <div class="card">
     <div class="row">
@@ -57,7 +57,7 @@
       </div>
       <div class="col">
         <label>Category</label>
-        <select id="targetType" onchange="toggleCategory()">
+        <select id="targetType">
           <option value="builder">Builder (Home)</option>
           <option value="lab">Research (Lab)</option>
         </select>
@@ -86,73 +86,4 @@
       </div>
       <div class="col" id="biteContainer">
         <label>Builder Bites (2x)</label>
-        <input type="number" id="inBites" min="0" value="0" step="1">
-      </div>
-    </div>
-
-    <div class="preview" id="liveCalc">
-      Real time needed: <strong>--</strong>
-      <div class="breakdown" id="liveBreakdown"></div>
-    </div>
-
-    <button type="button" onclick="createTimer()">Start Timer</button>
-  </div>
-
-  <div id="timersList"></div>
-
-  <script>
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function playBuzzer() {
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-      osc.frequency.setValueAtTime(440, audioCtx.currentTime + 0.2);
-      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.6);
-    }
-
-    let timers = JSON.parse(localStorage.getItem('coc_timers_v3') || '[]');
-
-    function toggleCategory() {
-      const type = document.getElementById('targetType').value;
-      const biteBox = document.getElementById('biteContainer');
-      const potLabel = document.getElementById('potionLabel');
-      if (type === 'lab') {
-        biteBox.style.display = 'none';
-        potLabel.innerText = 'Research Potions (24x)';
-      } else {
-        biteBox.style.display = 'block';
-        potLabel.innerText = 'Builder Potions (10x)';
-      }
-      updatePreview();
-    }
-
-    // Precise Sequential Boost Math
-    function computeBoostTime(totalGameHours, potions, bites, type) {
-      let remGame = Math.max(0, totalGameHours);
-      let realHours = 0;
-      let bpUsedTime = 0;
-      let biteUsedTime = 0;
-      let normTime = 0;
-
-      if (type === 'lab') {
-        const bpCapacity = potions * 24;
-        if (remGame <= bpCapacity) {
-          realHours = remGame / 24;
-          bpUsedTime = realHours;
-          remGame = 0;
-        } else {
-          bpUsedTime = potions;
-          remGame -= bpCapacity;
-          normTime = remGame;
-          realHours = bpUsedTime + normTime;
-        }
-      } else {
-        const bpCapacity = potions * 10;
-        if (rem
+        <input type="number" id
