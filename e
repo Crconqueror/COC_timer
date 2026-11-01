@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>CoC Boost & Bite Timer</title>
+  <meta name="theme-color" content="#121418">
+  <style>
+    :root {
+      --bg: #121418;
+      --card: #1c2026;
+      --accent: #f59e0b;
+      --accent-bite: #e11d48;
+      --accent-lab: #a855f7;
+      --text: #f3f4f6;
+      --muted: #9ca3af;
+      --border: #2d3748;
+      --danger: #ef4444;
+      --btn-alarm: #2563eb;
+      --btn-cal: #059669;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 16px; max-width: 500px; margin: auto; }
+    h1 { font-size: 1.3rem; margin-bottom: 12px; text-align: center; color: var(--accent); }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    label { font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 4px; }
+    .row { display: flex; gap: 8px; margin-bottom: 12px; }
+    .col { flex: 1; }
+    input, select, button { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: #262c36; color: var(--text); font-size: 0.95rem; }
+    input:focus, select:focus { outline: 2px solid var(--accent); }
+    button { background: var(--accent); color: #000; font-weight: 700; cursor: pointer; border: none; margin-top: 4px; }
+    button:active { filter: brightness(0.9); }
+    .btn-row { display: flex; gap: 8px; margin-top: 8px; }
+    .btn-alarm { background: var(--btn-alarm); color: #fff; font-size: 0.8rem; font-weight: 600; padding: 8px; }
+    .btn-cal { background: var(--btn-cal); color: #fff; font-size: 0.8rem; font-weight: 600; padding: 8px; }
+    .btn-danger { background: var(--danger); color: white; width: auto; padding: 4px 8px; font-size: 0.75rem; }
+    .preview { background: #0f1216; padding: 10px; border-radius: 6px; margin: 10px 0; font-size: 0.9rem; border-left: 3px solid var(--accent); }
+    .preview strong { color: #fff; }
+    .breakdown { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+    .timer-item { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; position: relative; border-left: 4px solid var(--accent); }
+    .timer-item.lab { border-left-color: var(--accent-lab); }
+    .timer-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .timer-title { font-weight: 600; font-size: 1rem; }
+    .timer-remaining { font-size: 1.4rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .timer-meta { font-size: 0.85rem; color: #60a5fa; margin: 4px 0; font-weight: 500; }
+  </style>
+</head>
+<body>
+
+  <h1>CoC Boost & Bite Timer</h1>
+
+  <div class="card">
+    <div class="row">
+      <div class="col" style="flex: 2;">
+        <label>Timer Label</label>
+        <input type="text" id="timerLabel" placeholder="e.g. Queen, Lab" value="Upgrade">
+      </div>
+      <div class="col">
+        <label>Category</label>
+        <select id="targetType">
+          <option value="builder">Builder (Home)</option>
+          <option value="lab">Research (Lab)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <label>Game Days</label>
+        <input type="number" id="inDays" min="0" value="0" step="any">
+      </div>
+      <div class="col">
+        <label>Game Hours</label>
+        <input type="number" id="inHours" min="0" value="12" step="any">
+      </div>
+      <div class="col">
+        <label>Game Mins</label>
+        <input type="number" id="inMins" min="0" value="0" step="any">
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <label id="potionLabel">Builder Potions (10x)</label>
+        <input type="number" id="inPotions" min="0" value="1" step="1">
+      </div>
+      <div class="col" id="biteContainer">
+        <label>Builder Bites (2x)</label>
+        <input type="number" id="inBites" min="0" value="0" step="1">
+      </div>
+    </div>
+
+    <div class="preview" id="liveCalc">
+      Real time needed: <strong>--</strong>
+      <div class="breakdown" id="liveBreakdown"></div>
+    </div>
+
+    <button type="button" onclick="createTimer()">Start Timer</button>
+  </div>
+
+  <div id="timersList"></div>
+
+  <script>
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playBuzzer() {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+      osc.frequency.setValueAtTime(440, audioCtx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.6);
+    }
+
+    let timers = JSON.parse(localStorage.getItem('coc_timers_v3') || '[]');
+
+    function toggleCategory() {
+      const type = document.getElementById('targetType').value;
+      const biteBox = document.getElementById('biteContainer');
+      const potLabel = document.getElementById('potionLabel');
+
+      if (type === 'lab') {
+        biteBox.style.display = 'none';
+        potLabel.textContent = 'Research Potions (24x)';
+      } else {
+        biteBox.style.display = 'block';
+        potLabel.textContent = 'Builder Potions (10x)';
+      }
+      updatePreview();
+    }
+
+    function computeBoostTime(totalGameHours, potions, bites, type) {
+      let remGame = Math.max(0, totalGameHours);
+      let realHours = 0;
+      let bpUsedTime = 0;
+      let biteUsedTime = 0;
+      let normTime = 0;
+
+      if (type === 'lab') {
+        const bpCapacity = potions * 24;
+        if (remGame <= bpCapacity) {
+          realHours = remGame / 24;
+          bpUsedTime = realHours;
+          remGame = 0;
+        } else {
+          bpUsedTime = potions;
+          remGame -= bpCapacity;
+          normTime = remGame;
+          realHours = bpUsedTime + normTime;
+        }
+      } else {
+        const bpCapacity = potions * 10;
+        if (remGame <= bpCapacity) {
+          realHours = remGame / 10;
+          bpUsedTime = realHours;
+          remGame = 0;
+        } else {
+          bpUsedTime = potions;
+          remGame -= bpCapacity;
+
+          const biteCapacity = bites * 2;
+          if (remGame <= biteCapacity) {
+            biteUsedTime = remGame / 2;
+            realHours = bpUsedTime + biteUsedTime;
+            remGame = 0;
+          } else {
+            biteUsedTime = bites;
+            remGame -= biteCapacity;
+            normTime = remGame;
+            realHours = bpUsedTime + biteUsedTime + normTime;
+          }
+        }
+      }
+
+      return { realHours, bpUsedTime, biteUsedTime, normTime };
+    }
+
+    function formatTime(ms) {
+      if (ms <= 0) return "Finished!";
+      const sec = Math.floor((ms / 1000) % 60);
+      const min = Math.floor((ms / (1000 * 60)) % 60);
+      const hr = Math.floor((ms / (1000 * 60 * 60)) % 24);
+      const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+      let out = "";
+      if (days > 0) out += days + "d ";
+      out += `${String(hr).padStart(2, '0')}h ${String(min).padStart(2, '0')}m ${String(sec).padStart(2, '0')}s`;
+      return out;
+    }
+
+    function updatePreview() {
+      const d = parseFloat(document.getElementById('inDays').value) || 0;
+      const h = parseFloat(document.getElementById('inHours').value) || 0;
+      const m = parseFloat(document.getElementById('inMins').value) || 0;
+      const p = parseInt(document.getElementById('inPotions').value) || 0;
+      const type = document.getElementById('targetType').value;
+      const b = type === 'lab' ? 0 : (parseInt(document.getElementById('inBites').value) || 0);
+
+      const totalGameHours = (d * 24) + h + (m / 60);
+      const res = computeBoostTime(totalGameHours, p, b, type);
+
+      const ms = Math.round(res.realHours * 3600 * 1000);
+      const sec = Math.floor((ms / 1000) % 60);
+      const min = Math.floor((ms / (1000 * 60)) % 60);
+      const hrs = Math.floor(ms / (1000 * 60 * 60));
+
+      const completionDate = new Date(Date.now() + ms);
+
+      document.getElementById('liveCalc').innerHTML = 
+        `Real time needed: <strong>${hrs}h ${min}m ${sec}s</strong><br>
+         Will end at: <strong>${completionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</strong>
+         <div class="breakdown">
+           ${res.bpUsedTime > 0 ? `• Potion active: ${res.bpUsedTime.toFixed(2)}h<br>` : ''}
+           ${res.biteUsedTime > 0 ? `• Bite active: ${res.biteUsedTime.toFixed(2)}h<br>` : ''}
+           ${res.normTime > 0 ? `• Regular 1x speed: ${res.normTime.toFixed(2)}h` : ''}
+         </div>`;
+    }
+
+    function createTimer() {
+      const label = document.getElementById('timerLabel').value || "Upgrade";
+      const d = parseFloat(document.getElementById('inDays').value) || 0;
+      const h = parseFloat(document.getElementById('inHours').value) || 0;
+      const m = parseFloat(document.getElementById('inMins').value) || 0;
+      const p = parseInt(document.getElementById('inPotions').value) || 0;
+      const type = document.getElementById('targetType').value;
+      const b = type === 'lab' ? 0 : (parseInt(document.getElementById('inBites').value) || 0);
+
+      const res = computeBoostTime((d * 24) + h + (m / 60), p, b, type);
+      const endTimestamp = Date.now() + Math.round(res.realHours * 3600 * 1000);
+
+      timers.push({
+        id: Date.now(),
+        label,
+        type,
+        endTimestamp,
+        notified: false
+      });
+      saveTimers();
+      renderTimers();
+    }
+
+    function deleteTimer(id) {
+      timers = timers.filter(t => t.id !== id);
+      saveTimers();
+      renderTimers();
+    }
+
+    function saveTimers() {
+      localStorage.setItem('coc_timers_v3', JSON.stringify(timers));
+    }
+
+    function openGoogleCalendar(timer) {
+      const start = new Date(timer.endTimestamp);
+      const end = new Date(timer.endTimestamp + (10 * 60 * 1000));
+
+      const toISO = d => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      const title = encodeURIComponent(`CoC Done: ${timer.label}`);
+      const details = encodeURIComponent(`Upgrade complete at ${start.toLocaleTimeString()}!`);
+
+      const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${toISO(start)}/${toISO(end)}&details=${details}`;
+      window.open(gcalUrl, '_blank');
+    }
+
+    function setClockAlarm(timer) {
+      const date = new Date(timer.endTimestamp);
+      const hours = date.getHours();
+      const minutes = date.getMinutes();
+      const message = encodeURIComponent(`CoC: ${timer.label}`);
+      
+      const alarmUri = `intent:#Intent;action=android.intent.action.SET_ALARM;i.android.intent.extra.HOUR=${hours};i.android.intent.extra.MINUTES=${minutes};s.android.intent.extra.MESSAGE=${message};B.android.intent.extra.SKIP_UI=false;end`;
+      window.location.href = alarmUri;
+    }
+
+    function renderTimers() {
+      const container = document.getElementById('timersList');
+      container.innerHTML = '';
+      const now = Date.now();
+
+      timers.forEach(t => {
+        const remainingMs = t.endTimestamp - now;
+        const isDone = remainingMs <= 0;
+        
+        if (isDone && !t.notified) {
+          playBuzzer();
+          t.notified = true;
+          saveTimers();
+        }
+
+        const endTimeStr = new Date(t.endTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+        const div = document.createElement('div');
+        div.className = `timer-item ${t.type}`;
+        div.innerHTML = `
+          <div class="timer-head">
+            <span class="timer-title">${t.label} (${t.type.toUpperCase()})</span>
+            <button class="btn-danger" onclick="deleteTimer(${t.id})">Delete</button>
+          </div>
+          <div class="timer-remaining" style="color: ${isDone ? 'var(--danger)' : 'var(--text)'}">
+            ${formatTime(remainingMs)}
+          </div>
+          <div class="timer-meta">Ends at: ${endTimeStr}</div>
+          <div class="btn-row">
+            <button class="btn-alarm" onclick='setClockAlarm(${JSON.stringify(t)})'>⏰ Set Device Alarm</button>
+            <button class="btn-cal" onclick='openGoogleCalendar(${JSON.stringify(t)})'>📅 Google Calendar</button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    // Event listeners
+    ['inDays', 'inHours', 'inMins', 'inPotions', 'inBites'].forEach(id => {
+      document.getElementById(id).addEventListener('input', updatePreview);
+    });
+
+    const categorySelect = document.getElementById('targetType');
+    categorySelect.addEventListener('change', toggleCategory);
+    categorySelect.addEventListener('input', toggleCategory);
+
+    // Initial boot
+    setInterval(renderTimers, 1000);
+    toggleCategory();
+    renderTimers();
+  </script>
+</body>
+</html>
