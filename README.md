@@ -9,9 +9,9 @@ A lightweight, zero-dependency, fully offline Progressive Web App (PWA) designed
 In *Clash of Clans*, the UI displays the total nominal upgrade time remaining rather than adjusting dynamically for active temporary speed boosts. 
 
 * **Builder Potions** run at **10× speed** for 1 hour (saving 9 hours).
-* **Builder Bites** run at **2× speed** for 1 hour (saving 1 hour)[cite: 1].
+* **Builder Bites** run at **2× speed** for 1 hour (saving 1 hour).
 * **Research Potions** run at **24× speed** for 1 hour (saving 23 hours).
-* **Interaction:** Builder Bites and Builder Potions **do not stack simultaneously**[cite: 1]; they run sequentially[cite: 1].
+* **Interaction:** Builder Bites and Builder Potions **do not stack simultaneously**; they run sequentially.
 
 Calculating multi-boost chains manually is error-prone. This tool calculates the exact real-world check-in timestamp and triggers audible alerts.
 
@@ -19,7 +19,7 @@ Calculating multi-boost chains manually is error-prone. This tool calculates the
 
 ## ✨ Features
 
-- **Sequential Boost Engine:** Accurately steps through Builder Potions (10×) first, then Builder Bites (2×)[cite: 1], and falls back to standard speed (1×).
+- **Sequential Boost Engine:** Accurately steps through Builder Potions (10×) first, then Builder Bites (2×), and falls back to standard speed (1×).
 - **Research/Lab Boosts:** Supports dedicated 24× speed calculations for laboratory upgrades.
 - **100% Offline Capability:** Runs locally in any modern browser without an active internet connection.
 - **Synthesized Audio Alert:** Built-in Web Audio API alarm sound that works without external MP3 dependencies.
